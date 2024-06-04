@@ -3,29 +3,6 @@
 import fs from 'fs';
 import postcss from 'postcss';
 import { resolve } from 'path';
-import configLang from "./lib/configLang.js";
-import ecssmessages from "./lib/messages.js";
-
-const { lang } = configLang;
-const messages = ecssmessages;
-const chosenLang = () => {
-	let messageLang;
-	const osLang = Intl.DateTimeFormat().resolvedOptions().locale;
-
-	if(lang == "auto" && (osLang.includes("en-") || osLang.includes("fr-"))){
-		messageLang = osLang
-	} else if(lang == "fr" || lang == "en") {
-		messageLang = lang;
-	} else {
-		messageLang = "en";
-	}
-	return messageLang.split("-")[0];
-}
-
-const printMessage = (keywordId) => {
-	let message = messages[keywordId][chosenLang()];
-	return message;
-}
 
 function findCommonDeclarations(allBlocks, minSetSize) {
 	const commonSets = [];
@@ -39,17 +16,26 @@ function findCommonDeclarations(allBlocks, minSetSize) {
 				if (intersection.length >= minSetSize) {
 					// Check if a common set already exists that includes either block or otherBlock
 					let foundSet = commonSets.find(set => 
-						(set.selectors.has(block.selector) || set.selectors.has(otherBlock.selector)) &&
+						(set.selectors.some(sel => sel.selector === block.selector) || 
+						 set.selectors.some(sel => sel.selector === otherBlock.selector)) &&
 						intersection.every(decl => set.declarations.has(decl)));
 
 					if (foundSet) {
-						foundSet.selectors.add(block.selector);
-						foundSet.selectors.add(otherBlock.selector);
+						// Avoid adding the same block multiple times
+						if (!foundSet.selectors.some(sel => sel.selector === block.selector && sel.line === block.line)) {
+							foundSet.selectors.push({ selector: block.selector, file: block.file, line: block.line });
+						}
+						if (!foundSet.selectors.some(sel => sel.selector === otherBlock.selector && sel.line === otherBlock.line)) {
+							foundSet.selectors.push({ selector: otherBlock.selector, file: otherBlock.file, line: otherBlock.line });
+						}
 					} else {
 						// Create a new set with the intersection of declarations
 						commonSets.push({
 							declarations: new Set(intersection),
-							selectors: new Set([block.selector, otherBlock.selector])
+							selectors: [
+								{ selector: block.selector, file: block.file, line: block.line },
+								{ selector: otherBlock.selector, file: otherBlock.file, line: otherBlock.line }
+							]
 						});
 					}
 				}
@@ -58,24 +44,29 @@ function findCommonDeclarations(allBlocks, minSetSize) {
 	});
 
 	// Eliminate sets that don't meet the criteria
-	return commonSets.filter(set => set.selectors.size >= 2);
+	return commonSets.filter(set => set.selectors.length >= 2);
 }
 
 function aggregateDeclarations(files) {
-  const allBlocks = [];
+	const allBlocks = [];
 
-  files.forEach(file => {
-    const css = fs.readFileSync(file, 'utf8');
-    const parsedCss = postcss.parse(css, { from: file });
+	files.forEach(file => {
+		const css = fs.readFileSync(file, 'utf8');
+		const parsedCss = postcss.parse(css, { from: file });
 
-    parsedCss.walkRules(rule => {
-      const declarations = new Set();
-      rule.walkDecls(decl => declarations.add(`${decl.prop}: ${decl.value}`));
-      allBlocks.push({ declarations, selector: rule.selector, file: parsedCss.source.input.file, line: rule.source.start.line });
-    });
-  });
+		parsedCss.walkRules(rule => {
+			const declarations = new Set();
+			rule.walkDecls(decl => declarations.add(`${decl.prop}: ${decl.value}`));
+			allBlocks.push({ 
+				declarations, 
+				selector: rule.selector, 
+				file: parsedCss.source.input.file, 
+				line: rule.source.start.line 
+			});
+		});
+	});
 
-  return allBlocks;
+	return allBlocks;
 }
 
 // Process command line arguments
@@ -84,7 +75,7 @@ const minSetSize = parseInt(args.find(arg => !isNaN(parseInt(arg, 10))), 10) || 
 const cssFilePaths = args.filter(arg => isNaN(parseInt(arg, 10))).map(file => resolve(file));
 
 if (cssFilePaths.length === 0) {
-	console.error(printMessage("no-path-error"));
+	console.error('Please provide at least one CSS file path.');
 	process.exit(1);
 }
 
@@ -92,17 +83,16 @@ const allBlocks = aggregateDeclarations(cssFilePaths);
 const commonDeclarations = findCommonDeclarations(allBlocks, minSetSize);
 
 if (commonDeclarations.length > 0) {
-	console.log(printMessage("duplicated-pattern"));
+	console.log("Duplicated patterns:");
 	commonDeclarations.forEach((set, index) => {
-		const selectors = [...set.selectors].join(', ');
-		console.log(`${selectors}`+" "+printMessage("share")+" "+`${set.declarations.size}`+" "+printMessage("rules")+".");
+		const uniqueSelectors = [...new Set(set.selectors.map(sel => sel.selector))].join(', ');
+		console.log(`${uniqueSelectors} share these ${set.declarations.size} rules:`);
 		set.declarations.forEach(decl => console.log(`  ${decl}`));
-		set.selectors.forEach(selector => {
-			const { file, line } = allBlocks.find(block => block.selector === selector);
-			console.log(`${selector} -> ${file}:${line}`);
+		set.selectors.forEach(sel => {
+			console.log(`See ${sel.selector} in ${sel.file}:${sel.line}`);
 		});
 		console.log();
 	});
 } else {
-	console.log(printMessage("no-duplication-found"));
+	console.log("No common declaration sets found that meet the criteria.");
 }
