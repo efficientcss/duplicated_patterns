@@ -1,6 +1,6 @@
 {
   "name": "duplicated-rules",
-  "version": "1.0.0-beta1",
+  "version": "1.0.0-beta-2",
   "description": "Find duplicated rules in a CSS codebase.",
   "main": "duplicated_rules.mjs",
   "type": "module",
