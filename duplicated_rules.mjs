@@ -2,7 +2,30 @@
 
 import fs from 'fs';
 import postcss from 'postcss';
-import { resolve } from 'path';
+import { resolve, relative } from 'path';
+import configLang from "./lib/configLang.js";
+import ecssmessages from "./lib/messages.js";
+
+const { lang } = configLang;
+const messages = ecssmessages;
+const chosenLang = () => {
+	let messageLang;
+	const osLang = Intl.DateTimeFormat().resolvedOptions().locale;
+
+	if(lang == "auto" && (osLang.includes("en-") || osLang.includes("fr-"))){
+		messageLang = osLang
+	} else if(lang == "fr" || lang == "en") {
+		messageLang = lang;
+	} else {
+		messageLang = "en";
+	}
+	return messageLang.split("-")[0];
+}
+
+const printMessage = (keywordId) => {
+	return messages[keywordId][chosenLang()]
+}
+
 
 function findCommonDeclarations(allBlocks, minSetSize) {
 	const commonSets = [];
@@ -75,7 +98,7 @@ const minSetSize = parseInt(args.find(arg => !isNaN(parseInt(arg, 10))), 10) || 
 const cssFilePaths = args.filter(arg => isNaN(parseInt(arg, 10))).map(file => resolve(file));
 
 if (cssFilePaths.length === 0) {
-	console.error('Please provide at least one CSS file path.');
+	console.error(printMessage("no-path-error"));
 	process.exit(1);
 }
 
@@ -83,16 +106,17 @@ const allBlocks = aggregateDeclarations(cssFilePaths);
 const commonDeclarations = findCommonDeclarations(allBlocks, minSetSize);
 
 if (commonDeclarations.length > 0) {
-	console.log("Duplicated patterns:");
+	console.log(printMessage("duplicated-pattern"));
 	commonDeclarations.forEach((set, index) => {
 		const uniqueSelectors = [...new Set(set.selectors.map(sel => sel.selector))].join(', ');
-		console.log(`${uniqueSelectors} share these ${set.declarations.size} rules:`);
+		console.log(`${uniqueSelectors} ${printMessage("share")} ${set.declarations.size} ${printMessage("rules")}.`);
 		set.declarations.forEach(decl => console.log(`  ${decl}`));
 		set.selectors.forEach(sel => {
-			console.log(`See ${sel.selector} in ${sel.file}:${sel.line}`);
+			const relativePath = relative(process.cwd(), sel.file);
+			console.log(`${sel.selector} -> ${relativePath}:${sel.line}`);
 		});
 		console.log();
 	});
 } else {
-	console.log("No common declaration sets found that meet the criteria.");
+	console.log(printMessage("no-duplication-found"));
 }
