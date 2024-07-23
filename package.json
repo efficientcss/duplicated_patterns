@@ -20,7 +20,8 @@
   "dependencies": {
     "@efficientcss/duplicated-rules": "^1.0.0-beta-2",
     "glob": "^10.3.10",
-    "postcss": "^8.4.35"
+    "postcss": "^8.4.39",
+    "postcss-nested": "^6.0.1"
   },
   "devDependencies": {
     "stylelint": "^16.3.1"
