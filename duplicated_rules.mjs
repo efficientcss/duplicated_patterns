@@ -107,12 +107,26 @@ async function aggregateDeclarations(files) {
 		let ruleIndex = 0;
 		parsedCss.walkRules(rule => {
 			const declarations = new Set();
+			let parentSelectors = [];
+
+			// Walk through parent rules to capture nesting context
+			let parentRule = rule.parent;
+			while (parentRule && parentRule.type === 'rule') {
+				parentSelectors.push(parentRule.selector);
+				parentRule = parentRule.parent;
+			}
+
+			// Capture declarations
 			rule.walkDecls(decl => declarations.add(`${decl.prop}: ${decl.value}`));
-			allBlocks.push({ 
-				declarations, 
-				selector: rule.selector, 
-				file: parsedCss.source.input.file, 
-				line: originalLines[ruleIndex]
+
+			// Store block with nesting context
+			allBlocks.push({
+				declarations,
+				selector: rule.selector,
+				file: parsedCss.source.input.file,
+				line: originalLines[ruleIndex],
+				isNested: parentSelectors.length > 0,
+				parentSelectors: parentSelectors.reverse()  // Reverse to reflect correct order
 			});
 			ruleIndex += 1;
 		});
