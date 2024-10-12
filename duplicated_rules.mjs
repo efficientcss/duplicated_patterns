@@ -50,7 +50,7 @@ function findCommonDeclarations(allBlocks, minSetSize) {
 
 	allBlocks.forEach((block, index) => {
 		allBlocks.forEach((otherBlock, otherIndex) => {
-			if (index !== otherIndex) {
+			if (index !== otherIndex && compareSelectorsWithContext(block, otherBlock)) {
 				const intersection = [...block.declarations].filter(x => otherBlock.declarations.has(x));
 
 				if (intersection.length >= minSetSize) {
