@@ -27,6 +27,24 @@ const printMessage = (keywordId) => {
 	return messages[keywordId][chosenLang()]
 }
 
+// Function to compare selectors with context (top-level or nested rules)
+function compareSelectorsWithContext(block1, block2) {
+	// Compare top-level rules only with top-level rules
+	if (!block1.isNested && !block2.isNested) {
+		return true;
+	}
+
+	// Compare nested rules only if they share the same parent context
+	if (block1.isNested && block2.isNested) {
+		const sameContext = block1.parentSelectors.length === block2.parentSelectors.length &&
+			block1.parentSelectors.every((sel, index) => sel === block2.parentSelectors[index]);
+		return sameContext;
+	}
+
+	// If one is nested and the other is not, they cannot be compared
+	return false;
+}
+
 function findCommonDeclarations(allBlocks, minSetSize) {
 	const commonSets = [];
 
