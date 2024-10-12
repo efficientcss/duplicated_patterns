@@ -14,7 +14,7 @@ const chosenLang = () => {
 	const osLang = Intl.DateTimeFormat().resolvedOptions().locale;
 
 	if(lang == "auto" && (osLang.includes("en-") || osLang.includes("fr-"))){
-		messageLang = osLang
+		messageLang = osLang;
 	} else if(lang == "fr" || lang == "en") {
 		messageLang = lang;
 	} else {
