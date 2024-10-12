@@ -45,6 +45,7 @@ function compareSelectorsWithContext(block1, block2) {
 	return false;
 }
 
+// Function to find common declarations across CSS blocks
 function findCommonDeclarations(allBlocks, minSetSize) {
 	const commonSets = [];
 
@@ -83,9 +84,11 @@ function findCommonDeclarations(allBlocks, minSetSize) {
 	return commonSets.filter(set => set.selectors.length >= 2);
 }
 
+// Function to aggregate all declarations from the provided CSS files
 async function aggregateDeclarations(files) {
 	const allBlocks = [];
 	const originalLines = [];
+
 	for (const file of files) {
 		const css = fs.readFileSync(file, 'utf8');
 
